@@ -148,7 +148,7 @@ export async function filterOpsAndEstimateGas({
                     ...(fixedGasLimitForEstimation && {
                         gas: fixedGasLimitForEstimation
                     }),
-                    ...(stateOverride && {
+                    ...(stateOverride && stateOverride.length > 0 && {
                         stateOverride
                     }),
                     ...gasOptions
