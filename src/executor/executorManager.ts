@@ -39,6 +39,7 @@ import type { Executor } from "./executor"
 import type { AltoConfig } from "../createConfig"
 import { SenderManager } from "./senderManager"
 import { BaseError } from "abitype"
+import { createNonceManager } from "../utils/nonceManager"
 import { getUserOpHashes } from "./utils"
 
 function getTransactionsFromUserOperationEntries(
@@ -72,6 +73,7 @@ export class ExecutorManager {
     private eventManager: EventManager
     private opsCount: number[] = []
     private bundlingMode: BundlingMode
+    private nonceManager: ReturnType<typeof createNonceManager>
 
     constructor({
         config,
@@ -109,6 +111,7 @@ export class ExecutorManager {
         this.gasPriceManager = gasPriceManager
         this.eventManager = eventManager
         this.senderManager = senderManager
+        this.nonceManager = createNonceManager(config.publicClient, this.logger)
 
         this.bundlingMode = this.config.bundleMode
 
@@ -200,7 +203,7 @@ export class ExecutorManager {
             this.gasPriceManager.tryGetNetworkGasPrice(),
             this.config.publicClient.getTransactionCount({
                 address: wallet.address,
-                blockTag: "latest"
+                blockTag: "pending"
             })
         ]).catch((_) => {
             return []
@@ -454,7 +457,12 @@ export class ExecutorManager {
                 transactionInfo.transactionRequest.gas,
                 this.config.aa95GasMultiplier
             )
-            transactionInfo.transactionRequest.nonce += 1
+
+            // Fetch current nonce instead of manually incrementing to avoid race conditions
+            // change: transactionInfo.transactionRequest.nonce += 1
+            // to:
+            transactionInfo.transactionRequest.nonce =
+                await this.nonceManager.getCurrentNonce(transactionInfo.executor)
 
             await this.replaceTransaction(transactionInfo, "AA95")
             return

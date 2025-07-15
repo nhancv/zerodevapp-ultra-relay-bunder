@@ -117,6 +117,14 @@ export function customTransport(
                             }
                         }
 
+                        // Nonce errors are common during high load, log as warning instead of error
+                        if (
+                            error.message?.includes("invalid nonce") ||
+                            error.message?.includes("nonce too low")
+                        ) {
+                            loggerFn = logger.warn.bind(logger)
+                        }
+
                         loggerFn(
                             {
                                 err: error,
