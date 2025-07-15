@@ -201,10 +201,7 @@ export class ExecutorManager {
 
         const [gasPriceParams, nonce] = await Promise.all([
             this.gasPriceManager.tryGetNetworkGasPrice(),
-            this.config.publicClient.getTransactionCount({
-                address: wallet.address,
-                blockTag: "pending"
-            })
+            this.nonceManager.getCurrentNonce(wallet)
         ]).catch((_) => {
             return []
         })

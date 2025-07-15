@@ -33,6 +33,7 @@ import type { AltoConfig } from "../createConfig"
 import { sendPflConditional } from "./fastlane"
 import type { SignedAuthorizationList } from "viem"
 import { filterOpsAndEstimateGas } from "./filterOpsAndEStimateGas"
+import { createNonceManager } from "../utils/nonceManager";
 
 type HandleOpsTxParams = {
     gas: bigint
@@ -73,6 +74,7 @@ export class Executor {
     gasPriceManager: GasPriceManager
     mempool: Mempool
     eventManager: EventManager
+    private nonceManager: ReturnType<typeof createNonceManager>
 
     constructor({
         config,
@@ -101,6 +103,7 @@ export class Executor {
         this.metrics = metrics
         this.gasPriceManager = gasPriceManager
         this.eventManager = eventManager
+        this.nonceManager = createNonceManager(config.publicClient, this.logger)
     }
 
     cancelOps(_entryPoint: Address, _ops: UserOperation[]): Promise<void> {
@@ -172,11 +175,7 @@ export class Executor {
                     if (isTransactionUnderpricedError(e)) {
                         this.logger.warn("Transaction underpriced, retrying")
 
-                        request.nonce =
-                            await this.config.publicClient.getTransactionCount({
-                                address: account.address,
-                                blockTag: "latest"
-                            })
+                        request.nonce = await this.nonceManager.getCurrentNonce(account)
 
                         if (
                             request.maxFeePerGas &&
@@ -211,11 +210,7 @@ export class Executor {
                         cause instanceof NonceTooHighError
                     ) {
                         this.logger.warn("Nonce too low, retrying")
-                        request.nonce =
-                            await this.config.publicClient.getTransactionCount({
-                                address: request.from,
-                                blockTag: "pending"
-                            })
+                        request.nonce = await this.nonceManager.getCurrentNonce(account)
                     }
 
                     if (cause instanceof IntrinsicGasTooLowError) {
